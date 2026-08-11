@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>英文音読アナライザー - Student Oral Reading Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(71, 85, 105, 1); }
+    
+    .pulse-ring {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+      animation: pulse-ring-anim 1.5s infinite cubic-bezier(0.66, 0, 0, 1);
+    }
+    @keyframes pulse-ring-anim {
+      to { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased overflow-x-hidden selection:bg-brand-500 selection:text-white">
+
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-brand-500/20">
+          <i class="fa-solid font-bold fa-microphone-lines"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg text-slate-100 leading-tight">英文音読アナライザー</h1>
+          <p class="text-xs text-slate-400">Student Speech Transcription & Oral Reading Coach</p>
+        </div>
+      </div>
+      
+      <!-- Top Actions / Nav tabs -->
+      <div class="flex items-center gap-2">
+        <button id="tab-practice-btn" onclick="switchTab('practice')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all bg-brand-600 text-white shadow-md shadow-brand-600/20">
+          <i class="fa-solid fa-book-open mr-1.5"></i> 音読練習
+        </button>
+        <button id="tab-history-btn" onclick="switchTab('history')" class="px-3 py-1.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all">
+          <i class="fa-solid fa-clock-rotate-left mr-1.5"></i> 記録履歴
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+    <!-- PRACTICE TAB CONTENT -->
+    <div id="practice-tab" class="space-y-6">
+      
+      <!-- Section 1: Target Text Selection & Custom Input -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-xl backdrop-blur-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">1</span>
+            <h2 class="text-base font-semibold text-slate-200">課題英文（モデルテキスト）の設定</h2>
+          </div>
+          
+          <!-- Presets -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs text-slate-400 font-medium">プリセット:</span>
+            <select id="preset-select" onchange="loadPresetText()" class="bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              <option value="custom">カスタム（直接入力）</option>
+              <option value="easy_1" selected>中学レベル - Daily Life</option>
+              <option value="easy_2">高校基礎 - Self Introduction</option>
+              <option value="mid_1">英検2級 - Technology & Society</option>
+              <option value="adv_1">環境・SDGs - Renewable Energy</option>
+            </select>
+            <button onclick="speakTargetText()" id="tts-btn" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium rounded-lg transition flex items-center gap-1.5">
+              <i class="fa-solid fa-volume-high text-brand-400"></i> お手本音声再生
+            </button>
+          </div>
+        </div>
+
+        <textarea id="target-text" rows="3" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl p-3.5 text-sm sm:text-base text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:outline-none transition leading-relaxed placeholder-slate-500 resize-y" placeholder="音読させたい英文を入力するか、プリセットを選択してください..."></textarea>
+        
+        <div class="flex items-center justify-between text-xs text-slate-400 mt-2 px-1">
+          <span id="target-word-count"><i class="fa-solid fa-font mr-1"></i> 単語数: 0 words</span>
+          <span class="text-slate-500">音読目標速度: 120-150 WPM (Words Per Minute)</span>
+        </div>
+      </div>
+
+      <!-- Section 2: Recording & Live Transcription Dashboard -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: Controls & Visualizer -->
+        <div class="lg:col-span-5 bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-xl flex flex-col justify-between space-y-6">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <span class="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs font-bold">2</span>
+                <h2 class="text-base font-semibold text-slate-200">音声録音と入力制御</h2>
+              </div>
+              <span id="recording-status" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-slate-400"></span> 待機中
+              </span>
+            </div>
+            
+            <p class="text-xs text-slate-400 leading-normal">
+              マイクを許可し、「録音開始」を押して英語を声に出して読んでください。自動で音声が文字化されます。
+            </p>
+          </div>
+
+          <!-- Audio Visualizer Canvas -->
+          <div class="bg-slate-900/80 rounded-xl p-3 border border-slate-800 flex flex-col items-center justify-center min-h-[110px] relative overflow-hidden">
+            <canvas id="visualizer" class="w-full h-16 rounded-lg"></canvas>
+            <div id="timer-display" class="font-mono text-2xl font-bold text-slate-200 mt-2 tracking-wider">00:00.0</div>
+          </div>
+
+          <!-- Big Record Button -->
+          <div class="flex flex-col items-center justify-center space-y-3">
+            <button id="record-toggle-btn" onclick="toggleRecording()" class="group relative w-20 h-20 rounded-full bg-gradient-to-tr from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 flex items-center justify-center text-white shadow-xl shadow-rose-600/30 transition-all duration-300 transform active:scale-95 focus:outline-none">
+              <i id="record-icon" class="fa-solid fa-microphone text-2xl group-hover:scale-110 transition-transform"></i>
+            </button>
+            <span id="record-btn-label" class="text-xs font-medium text-slate-300">タップして録音開始</span>
+          </div>
+
+          <!-- Audio Playback (When recording finishes) -->
+          <div id="audio-playback-container" class="hidden bg-slate-900/60 rounded-xl p-3 border border-slate-700/50 space-y-2">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span><i class="fa-solid fa-circle-play mr-1"></i> 自分の録音音声を聞く</span>
+            </div>
+            <audio id="audio-player" controls class="w-full h-8 rounded text-xs"></audio>
+          </div>
+        </div>
+
+        <!-- Right Column: Live Recognized Speech Transcript -->
+        <div class="lg:col-span-7 bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-xl flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">3</span>
+              <h2 class="text-base font-semibold text-slate-200">リアルタイム音声認識テキスト</h2>
+            </div>
+            <button onclick="clearTranscript()" class="text-xs text-slate-400 hover:text-slate-200 transition">
+              <i class="fa-solid fa-trash-can mr-1"></i> クリア
+            </button>
+          </div>
+
+          <!-- Transcript Container -->
+          <div id="transcript-box" class="flex-1 bg-slate-900/90 border border-slate-700 rounded-xl p-4 min-h-[180px] max-h-[260px] overflow-y-auto text-sm sm:text-base text-slate-200 leading-relaxed space-y-2">
+            <p id="transcript-placeholder" class="text-slate-500 italic text-sm">
+              マイクに向かって音読すると、ここに認識された英語テキストが即座に書き起こされます...
+            </p>
+            <div id="transcript-text" class="whitespace-pre-wrap font-sans"></div>
+          </div>
+
+          <!-- Compare Action Button -->
+          <div class="mt-4 flex items-center justify-end gap-3">
+            <button onclick="analyzeSpeech()" id="analyze-btn" class="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-brand-500/25 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-chart-pie"></i> 音読スコア判定・詳細比較を行う
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Evaluation & Word-by-Word Diff Analysis -->
+      <div id="analysis-section" class="hidden space-y-6">
+        
+        <!-- Score Overview Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
+            <span class="text-xs text-slate-400 font-medium mb-1">発音一致率 (Accuracy)</span>
+            <div id="score-accuracy" class="text-3xl font-extrabold text-emerald-400">0%</div>
+            <span id="score-accuracy-sub" class="text-[11px] text-slate-500 mt-0.5">0 / 0 単語一致</span>
+          </div>
+
+          <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
+            <span class="text-xs text-slate-400 font-medium mb-1">音読スピード (WPM)</span>
+            <div id="score-wpm" class="text-3xl font-extrabold text-brand-400">0</div>
+            <span class="text-[11px] text-slate-500 mt-0.5">1分あたりの読唱語数</span>
+          </div>
+
+          <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
+            <span class="text-xs text-slate-400 font-medium mb-1">読み飛ばし / 脱落語</span>
+            <div id="score-missed" class="text-3xl font-extrabold text-rose-400">0</div>
+            <span class="text-[11px] text-slate-500 mt-0.5">モデル英文にある未発音語</span>
+          </div>
+
+          <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
+            <span class="text-xs text-slate-400 font-medium mb-1">音読にかかった時間</span>
+            <div id="score-duration" class="text-3xl font-extrabold text-amber-400">0s</div>
+            <span class="text-[11px] text-slate-500 mt-0.5">録音時間</span>
+          </div>
+        </div>
+
+        <!-- Detailed Word-by-Word Alignment Diff -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-xl">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 border-b border-slate-700/60 pb-3">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-magnifying-glass-chart text-brand-400"></i>
+              <h3 class="text-base font-semibold text-slate-200">単語別 音読フィードバック詳細 (Word Comparison)</h3>
+            </div>
+            
+            <div class="flex items-center gap-3 text-xs">
+              <span class="flex items-center gap-1 text-emerald-400"><span class="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500/50"></span> 正読</span>
+              <span class="flex items-center gap-1 text-rose-400"><span class="w-3 h-3 rounded bg-rose-500/20 border border-rose-500/50"></span> 読み飛ばし/発音エラー</span>
+              <span class="flex items-center gap-1 text-amber-400"><span class="w-3 h-3 rounded bg-amber-500/20 border border-amber-500/50"></span> 余分な発音</span>
+            </div>
+          </div>
+
+          <!-- Diff Display Area -->
+          <div id="diff-output" class="bg-slate-900/90 border border-slate-700 rounded-xl p-5 min-h-[120px] leading-loose text-base flex flex-wrap gap-2 items-center">
+            <!-- Dynamic tokens rendered here -->
+          </div>
+        </div>
+
+        <!-- Section 4: Gemini AI Comprehensive Feedback -->
+        <div class="bg-gradient-to-br from-indigo-900/40 via-slate-800/80 to-slate-900/90 border border-indigo-500/30 rounded-2xl p-5 shadow-2xl space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-semibold text-slate-100">AI 音読指導コーチの個別アドバイス</h3>
+                <p class="text-xs text-slate-400">Gemini AI が発音のクセ・発音改善アドバイス・指導講評を自動生成</p>
+              </div>
+            </div>
+            <button id="generate-ai-feedback-btn" onclick="requestGeminiFeedback()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition shadow-md shadow-indigo-600/30 flex items-center gap-1.5">
+              <i class="fa-solid fa-bolt"></i> AIアドバイスを生成
+            </button>
+          </div>
+
+          <!-- AI Output Box -->
+          <div id="ai-feedback-box" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 min-h-[100px] leading-relaxed">
+            <p class="text-slate-500 italic text-xs">
+              「AIアドバイスを生成」ボタンを押すと、Geminiが音読の誤読傾向や次回への具体的な発音ポイント（R/L、TH、リンキングなど）のアドバイスを作成します。
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- HISTORY TAB CONTENT -->
+    <div id="history-tab" class="hidden space-y-6">
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-history text-brand-400"></i>
+            <h2 class="text-base font-semibold text-slate-200">過去の音読練習履歴</h2>
+          </div>
+          <button onclick="clearHistory()" class="px-3 py-1.5 bg-rose-900/40 hover:bg-rose-900/70 border border-rose-700/50 text-rose-300 text-xs font-medium rounded-lg transition">
+            <i class="fa-solid fa-trash mr-1"></i> 履歴クリア
+          </button>
+        </div>
+
+        <div id="history-list" class="space-y-3">
+          <!-- Rendered dynamically -->
+          <div id="empty-history-msg" class="text-center py-8 text-slate-500 text-sm">
+            まだ音読の練習記録がありません。練習後に分析を実行するとここに記録されます。
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm">
+    <i id="toast-icon" class="fa-solid fa-circle-info text-brand-400 text-lg"></i>
+    <span id="toast-msg">通知メッセージ</span>
+  </div>
+
+  <script>
+    // App State Variables
+    let isRecording = false;
+    let recognition = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let audioBlob = null;
+    let audioUrl = null;
+    let startTime = null;
+    let timerInterval = null;
+    let elapsedSeconds = 0;
+    
+    // Audio Visualizer setup
+    let audioCtx = null;
+    let analyser = null;
+    let animFrameId = null;
+
+    // Transcripts
+    let recognizedTranscript = "";
+    let finalSpeechHistory = [];
+    let currentPracticeResult = null;
+
+    // Sample Text Presets
+    const PRESETS = {
+      easy_1: "Hello everyone. Welcome to our school. My name is Ken, and I am fourteen years old. I like playing soccer and studying English every day. Thank you very much.",
+      easy_2: "Today I would like to talk about my favorite pastime. In my free time, I love reading books and listening to music. Reading helps me learn new things and broadens my mind.",
+      mid_1: "In recent years, artificial intelligence has made remarkable progress across many industries. While it brings great convenience to daily life, it also raises questions about privacy and job security in the future.",
+      adv_1: "Renewable energy technologies such as solar and wind power are playing an essential role in reducing global carbon emissions. Transitioning to sustainable resources is necessary to combat climate change."
+    };
+
+    window.onload = () => {
+      loadPresetText();
+      setupSpeechRecognition();
+      loadHistoryUI();
+    };
+
+    // Load preset text into textarea
+    function loadPresetText() {
+      const select = document.getElementById('preset-select');
+      const val = select.value;
+      const targetArea = document.getElementById('target-text');
+      
+      if (val !== 'custom' && PRESETS[val]) {
+        targetArea.value = PRESETS[val];
+      }
+      updateWordCount();
+    }
+
+    document.getElementById('target-text').addEventListener('input', updateWordCount);
+
+    function updateWordCount() {
+      const text = document.getElementById('target-text').value.trim();
+      const words = text ? text.split(/\s+/).length : 0;
+      document.getElementById('target-word-count').innerHTML = `<i class="fa-solid fa-font mr-1"></i> 単語数: ${words} words`;
+    }
+
+    function setupSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (!SpeechRecognition) {
+        showToast("お使いのブラウザはWeb Speech API（音声認識）に対応していません。ChromeまたはEdgeをご利用ください。", "error");
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US'; // Focus on English speech
+
+      recognition.onstart = () => {
+        isRecording = true;
+        updateRecordingUI(true);
+      };
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let currentFinal = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            currentFinal += event.results[i][0].transcript + ' ';
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        if (currentFinal) {
+          recognizedTranscript += currentFinal;
+        }
+
+        renderLiveTranscript(recognizedTranscript, interimTranscript);
+      };
+
+      recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        if (event.error === 'not-allowed') {
+          showToast("マイクの使用権限が拒否されています。ブラウザの設定でアクセスを許可してください。", "error");
+        }
+      };
+
+      recognition.onend = () => {
+        if (isRecording) {
+          // Restart if user didn't explicitly stop
+          try { recognition.start(); } catch(e){}
+        } else {
+          updateRecordingUI(false);
+        }
+      };
+    }
+
+    async function toggleRecording() {
+      if (!recognition) {
+        setupSpeechRecognition();
+        if (!recognition) return;
+      }
+
+      if (!isRecording) {
+        // START RECORDING
+        recognizedTranscript = "";
+        audioChunks = [];
+        document.getElementById('transcript-text').innerText = "";
+        document.getElementById('transcript-placeholder').classList.remove('hidden');
+        document.getElementById('analysis-section').classList.add('hidden');
+        document.getElementById('audio-playback-container').classList.add('hidden');
+
+        try {
+          // Request mic access for audio recording
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          
+          // Setup MediaRecorder
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
+          mediaRecorder.onstop = () => {
+            audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            audioUrl = URL.createObjectURL(audioBlob);
+            const player = document.getElementById('audio-player');
+            player.src = audioUrl;
+            document.getElementById('audio-playback-container').classList.remove('hidden');
+          };
+          mediaRecorder.start();
+
+          // Visualizer setup
+          startAudioVisualizer(stream);
+
+          // Start Timer
+          elapsedSeconds = 0;
+          startTime = Date.now();
+          timerInterval = setInterval(() => {
+            elapsedSeconds = (Date.now() - startTime) / 1000;
+            const mins = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
+            const secs = (elapsedSeconds % 60).toFixed(1).padStart(4, '0');
+            document.getElementById('timer-display').innerText = `${mins}:${secs}`;
+          }, 100);
+
+          // Start Speech Recognition
+          recognition.start();
+          showToast("音読の録音を開始しました", "info");
+
+        } catch (err) {
+          console.error("Microphone access error:", err);
+          showToast("マイクアクセスの初期化に失敗しました", "error");
+        }
+
+      } else {
+        // STOP RECORDING
+        isRecording = false;
+        if (recognition) recognition.stop();
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+        if (timerInterval) clearInterval(timerInterval);
+        stopAudioVisualizer();
+        showToast("録音を停止しました", "success");
+      }
+    }
+
+    function updateRecordingUI(recording) {
+      const btn = document.getElementById('record-toggle-btn');
+      const icon = document.getElementById('record-icon');
+      const label = document.getElementById('record-btn-label');
+      const status = document.getElementById('recording-status');
+
+      if (recording) {
+        btn.classList.add('pulse-ring', 'from-red-600', 'to-rose-700');
+        icon.className = "fa-solid fa-square text-2xl";
+        label.innerText = "タップして録音停止";
+        status.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-500/20 text-rose-300 border border-rose-500/40";
+        status.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span> 録音中...`;
+      } else {
+        btn.classList.remove('pulse-ring', 'from-red-600', 'to-rose-700');
+        icon.className = "fa-solid fa-microphone text-2xl";
+        label.innerText = "タップして録音開始";
+        status.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-300";
+        status.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span> 待機中`;
+      }
+    }
+
+    function startAudioVisualizer(stream) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+
+      const canvas = document.getElementById('visualizer');
+      const ctx = canvas.getContext('2d');
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      function draw() {
+        animFrameId = requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(dataArray);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const barWidth = (canvas.width / bufferLength) * 2.5;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = (dataArray[i] / 255) * canvas.height;
+          ctx.fillStyle = `rgb(14, 165, 233)`;
+          ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+          x += barWidth + 2;
+        }
+      }
+      draw();
+    }
+
+    function stopAudioVisualizer() {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      if (audioCtx) audioCtx.close();
+    }
+
+    function renderLiveTranscript(finalText, interimText) {
+      const placeholder = document.getElementById('transcript-placeholder');
+      const textContainer = document.getElementById('transcript-text');
+
+      if (finalText || interimText) {
+        placeholder.classList.add('hidden');
+      }
+
+      textContainer.innerHTML = `<span>${escapeHtml(finalText)}</span><span class="text-brand-400 italic">${escapeHtml(interimText)}</span>`;
+      
+      const box = document.getElementById('transcript-box');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function clearTranscript() {
+      recognizedTranscript = "";
+      document.getElementById('transcript-text').innerText = "";
+      document.getElementById('transcript-placeholder').classList.remove('hidden');
+      document.getElementById('analysis-section').classList.add('hidden');
+    }
+
+    // Helper to clean tokens
+    function cleanToken(str) {
+      return str.toLowerCase().replace(/[^a-z0-9']/g, '');
+    }
+
+    function analyzeSpeech() {
+      const targetRaw = document.getElementById('target-text').value.trim();
+      const spokenRaw = recognizedTranscript.trim();
+
+      if (!targetRaw) {
+        showToast("課題英文（モデルテキスト）が入力されていません", "warning");
+        return;
+      }
+
+      if (!spokenRaw) {
+        showToast("認識された音声テキストがありません。音読後に実行してください", "warning");
+        return;
+      }
+
+      // Tokenize
+      const targetTokens = targetRaw.split(/\s+/);
+      const spokenTokens = spokenRaw.split(/\s+/);
+
+      const cleanedTarget = targetTokens.map(cleanToken);
+      const cleanedSpoken = spokenTokens.map(cleanToken);
+
+      // Perform Alignment algorithm (Longest Common Subsequence based matching)
+      let targetIdx = 0;
+      let spokenIdx = 0;
+      let matchedCount = 0;
+      let missedCount = 0;
+
+      let diffHtml = '';
+
+      while (targetIdx < cleanedTarget.length || spokenIdx < cleanedSpoken.length) {
+        if (targetIdx < cleanedTarget.length && spokenIdx < cleanedSpoken.length) {
+          const tToken = cleanedTarget[targetIdx];
+          const sToken = cleanedSpoken[spokenIdx];
+
+          if (tToken === sToken) {
+            // MATCH!
+            diffHtml += `<span class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-medium" title="正しく発音されました">${escapeHtml(targetTokens[targetIdx])}</span>`;
+            matchedCount++;
+            targetIdx++;
+            spokenIdx++;
+          } else {
+            // Check ahead in spoken to see if extra insertion happened
+            const lookAheadSpoken = cleanedSpoken.slice(spokenIdx, spokenIdx + 3).indexOf(tToken);
+            // Check ahead in target to see if omission happened
+            const lookAheadTarget = cleanedTarget.slice(targetIdx, targetIdx + 3).indexOf(sToken);
+
+            if (lookAheadSpoken !== -1 && (lookAheadTarget === -1 || lookAheadSpoken <= lookAheadTarget)) {
+              // Insertion in speech (Extra word spoken)
+              for (let i = 0; i < lookAheadSpoken; i++) {
+                diffHtml += `<span class="px-2 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 line-through text-sm" title="不要な発音または誤読">+${escapeHtml(spokenTokens[spokenIdx])}</span>`;
+                spokenIdx++;
+              }
+            } else if (lookAheadTarget !== -1) {
+              // Omission in speech (Target word missed)
+              for (let i = 0; i < lookAheadTarget; i++) {
+                diffHtml += `<span class="px-2 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 line-through font-medium" title="読み飛ばし / 発音認識不可">${escapeHtml(targetTokens[targetIdx])}</span>`;
+                missedCount++;
+                targetIdx++;
+              }
+            } else {
+              // Both differ (Substitution / Mismatch)
+              diffHtml += `<span class="px-2 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 line-through font-medium" title="誤読 (認識: ${escapeHtml(spokenTokens[spokenIdx])})">${escapeHtml(targetTokens[targetIdx])}</span>`;
+              missedCount++;
+              targetIdx++;
+              spokenIdx++;
+            }
+          }
+        } else if (targetIdx < cleanedTarget.length) {
+          // Remaining missed target words
+          diffHtml += `<span class="px-2 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 line-through font-medium" title="未発音">${escapeHtml(targetTokens[targetIdx])}</span>`;
+          missedCount++;
+          targetIdx++;
+        } else {
+          // Extra spoken words at the end
+          diffHtml += `<span class="px-2 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-sm" title="末尾の余分な発音">+${escapeHtml(spokenTokens[spokenIdx])}</span>`;
+          spokenIdx++;
+        }
+      }
+
+      // Calculate Metrics
+      const totalTargetWords = targetTokens.length;
+      const accuracyPct = Math.round((matchedCount / totalTargetWords) * 100) || 0;
+
+      const durationSec = elapsedSeconds > 0 ? elapsedSeconds : 1;
+      const wpm = Math.round((spokenTokens.length / durationSec) * 60);
+
+      // Render Metrics
+      document.getElementById('score-accuracy').innerText = `${accuracyPct}%`;
+      document.getElementById('score-accuracy-sub').innerText = `${matchedCount} / ${totalTargetWords} 単語一致`;
+      document.getElementById('score-wpm').innerText = wpm;
+      document.getElementById('score-missed').innerText = missedCount;
+      document.getElementById('score-duration').innerText = `${durationSec.toFixed(1)}s`;
+
+      document.getElementById('diff-output').innerHTML = diffHtml;
+      document.getElementById('analysis-section').classList.remove('hidden');
+
+      // Scroll to result
+      document.getElementById('analysis-section').scrollIntoView({ behavior: 'smooth' });
+
+      // Save session result
+      currentPracticeResult = {
+        date: new Date().toLocaleString('ja-JP'),
+        targetText: targetRaw,
+        spokenText: spokenRaw,
+        accuracy: accuracyPct,
+        wpm: wpm,
+        duration: durationSec.toFixed(1),
+        matched: matchedCount,
+        total: totalTargetWords
+      };
+
+      saveHistory(currentPracticeResult);
+      showToast("音読分析が完了しました", "success");
+    }
+
+    async function requestGeminiFeedback() {
+      if (!currentPracticeResult) {
+        showToast("先に「音読スコア判定」を行ってください", "warning");
+        return;
+      }
+
+      const feedbackBox = document.getElementById('ai-feedback-box');
+      const btn = document.getElementById('generate-ai-feedback-btn');
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> AI分析中...`;
+
+      feedbackBox.innerHTML = `
+        <div class="flex items-center gap-3 text-indigo-300 animate-pulse">
+          <i class="fa-solid fa-sparkles text-xl"></i>
+          <span>Gemini AIが音読結果を多角的に分析し、指導テキストを生成しています...</span>
+        </div>
+      `;
+
+      const prompt = `
+あなたは英語指導のプロフェッショナルコーチです。
+学生の音読練習結果を評価し、日本語で具体的で励みになる指導アドバイスを作成してください。
+
+【課題英文 (Model Text)】:
+${currentPracticeResult.targetText}
+
+【学生の音声認識結果 (Transcribed Speech)】:
+${currentPracticeResult.spokenText}
+
+【数値データ】:
+- 発音一致率: ${currentPracticeResult.accuracy}%
+- 読唱スピード: ${currentPracticeResult.wpm} WPM
+- 練習時間: ${currentPracticeResult.duration}秒
+
+【回答フォーマット requirements】:
+1. **全体講評 (讃える点と総評)**: 努力を褒めつつ全体の達成度を要約。
+2. **発音・リンキングのアドバイス (1〜2点)**: 読み落とした単語や誤読があった箇所の具体的な発音コツ（例: R/Lの区別、Thの発音、繋げて読む語など）。
+3. **次回への目標スピード・流暢さの提案**: WPMや区切り（イントネーション）に関するのアドバイス。
+
+親しみやすく前向きな言葉遣い（〜ですね！など）で書いてください。
+`;
+
+      try {
+        const apiKey = ""; // Canvas runtime dynamically attaches Gemini key when empty
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        });
+
+        const data = await response.json();
+        const responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (responseText) {
+          // Format markdown-like text to HTML
+          const formattedHtml = responseText
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="text-indigo-300 font-semibold">$1</strong>')
+            .replace(/\n\n/g, '</p><p class="mt-2.5">')
+            .replace(/\n- /g, '<br>• ');
+
+          feedbackBox.innerHTML = `<div class="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed"><p>${formattedHtml}</p></div>`;
+          showToast("AI音読アドバイスの生成が完了しました！", "success");
+        } else {
+          feedbackBox.innerHTML = `<p class="text-rose-400">AIフィードバックの取得に失敗しました。時間をおいて再試行してください。</p>`;
+        }
+
+      } catch (err) {
+        console.error("Gemini API error:", err);
+        feedbackBox.innerHTML = `<p class="text-rose-400">エラーが発生しました: ${escapeHtml(err.message)}</p>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-bolt"></i> AIアドバイスを再生成`;
+      }
+    }
+
+    function speakTargetText() {
+      const text = document.getElementById('target-text').value;
+      if (!text) {
+        showToast("お手本再生する英文を入力してください", "warning");
+        return;
+      }
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Stop ongoing
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.9; // Slightly slower clear pace for students
+        
+        showToast("お手本音声を再生中...", "info");
+        window.speechSynthesis.speak(utterance);
+      } else {
+        showToast("お使いのブラウザは音声合成(TTS)に対応していません", "error");
+      }
+    }
+
+    function saveHistory(item) {
+      let history = JSON.parse(localStorage.getItem('reading_app_history') || '[]');
+      history.unshift(item);
+      if (history.length > 20) history = history.slice(0, 20); // Keep last 20
+      localStorage.setItem('reading_app_history', JSON.stringify(history));
+      loadHistoryUI();
+    }
+
+    function loadHistoryUI() {
+      const history = JSON.parse(localStorage.getItem('reading_app_history') || '[]');
+      const container = document.getElementById('history-list');
+
+      if (history.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-slate-500 text-sm">
+            まだ音読の練習記録がありません。練習後に分析を実行するとここに記録されます。
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = history.map((h, i) => `
+        <div class="bg-slate-900/80 border border-slate-700/70 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div class="space-y-1 max-w-xl">
+            <div class="flex items-center gap-2 text-xs text-slate-400">
+              <span><i class="fa-regular fa-calendar mr-1"></i>${h.date}</span>
+              <span>•</span>
+              <span class="text-brand-400 font-medium">${h.wpm} WPM</span>
+            </div>
+            <p class="text-sm text-slate-200 line-clamp-1 font-medium">"${escapeHtml(h.targetText)}"</p>
+          </div>
+
+          <div class="flex items-center gap-4 border-t md:border-t-0 border-slate-800 pt-2 md:pt-0">
+            <div class="text-right">
+              <span class="text-xs text-slate-400 block">一致率</span>
+              <span class="text-lg font-bold ${h.accuracy >= 80 ? 'text-emerald-400' : 'text-amber-400'}">${h.accuracy}%</span>
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-slate-400 block">音読時間</span>
+              <span class="text-sm font-semibold text-slate-300">${h.duration}s</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function clearHistory() {
+      localStorage.removeItem('reading_app_history');
+      loadHistoryUI();
+      showToast("履歴をクリアしました", "info");
+    }
+
+    function switchTab(tab) {
+      const practiceTab = document.getElementById('practice-tab');
+      const historyTab = document.getElementById('history-tab');
+      const practiceBtn = document.getElementById('tab-practice-btn');
+      const historyBtn = document.getElementById('tab-history-btn');
+
+      if (tab === 'practice') {
+        practiceTab.classList.remove('hidden');
+        historyTab.classList.add('hidden');
+        practiceBtn.className = "px-3 py-1.5 rounded-lg text-sm font-medium transition-all bg-brand-600 text-white shadow-md shadow-brand-600/20";
+        historyBtn.className = "px-3 py-1.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all";
+      } else {
+        practiceTab.classList.add('hidden');
+        historyTab.classList.remove('hidden');
+        historyBtn.className = "px-3 py-1.5 rounded-lg text-sm font-medium transition-all bg-brand-600 text-white shadow-md shadow-brand-600/20";
+        practiceBtn.className = "px-3 py-1.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all";
+      }
+    }
+
+    function showToast(msg, type = 'info') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-msg');
+      const toastIcon = document.getElementById('toast-icon');
+
+      toastMsg.innerText = msg;
+
+      if (type === 'error') {
+        toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400 text-lg";
+      } else if (type === 'success') {
+        toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
+      } else if (type === 'warning') {
+        toastIcon.className = "fa-solid fa-triangle-exclamation text-amber-400 text-lg";
+      } else {
+        toastIcon.className = "fa-solid fa-circle-info text-brand-400 text-lg";
+      }
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3500);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>

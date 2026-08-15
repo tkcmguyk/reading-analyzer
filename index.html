@@ -241,18 +241,18 @@
               </div>
               <div>
                 <h3 class="text-base font-semibold text-slate-100">AI 音読指導コーチの個別アドバイス</h3>
-                <p class="text-xs text-slate-400">Gemini AI が発音のクセ・発音改善アドバイス・指導講評を自動生成</p>
+                <p class="text-xs text-slate-400">ChatGPT、Gemini、Claudeなど、お使いのAIに音声を渡して評価できます</p>
               </div>
             </div>
-            <button id="generate-ai-feedback-btn" onclick="requestGeminiFeedback()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition shadow-md shadow-indigo-600/30 flex items-center gap-1.5">
-              <i class="fa-solid fa-bolt"></i> AIアドバイスを生成
+            <button id="generate-ai-feedback-btn" onclick="prepareGenericAIFeedback()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition shadow-md shadow-indigo-600/30 flex items-center gap-1.5">
+              <i class="fa-solid fa-robot"></i> AI評価用データを作成
             </button>
           </div>
 
           <!-- AI Output Box -->
           <div id="ai-feedback-box" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 min-h-[100px] leading-relaxed">
             <p class="text-slate-500 italic text-xs">
-              「AIアドバイスを生成」ボタンを押すと、Geminiが音読の誤読傾向や次回への具体的な発音ポイント（R/L、TH、リンキングなど）のアドバイスを作成します。
+              「AI評価用データを作成」を押すと、課題英文と録音音声をAIに渡すための案内が表示されます。ChatGPT、Gemini、Claudeなど、お使いのAIを開いて、音声ファイルと指示文を渡してください。
             </p>
           </div>
         </div>
@@ -664,82 +664,142 @@
       showToast("音読分析が完了しました", "success");
     }
 
-    async function requestGeminiFeedback() {
+    async function prepareGenericAIFeedback() {
       if (!currentPracticeResult) {
         showToast("先に「音読スコア判定」を行ってください", "warning");
+        return;
+      }
+
+      if (!audioBlob) {
+        showToast("録音音声がありません。音読を録音してから実行してください", "warning");
         return;
       }
 
       const feedbackBox = document.getElementById('ai-feedback-box');
       const btn = document.getElementById('generate-ai-feedback-btn');
 
-      btn.disabled = true;
-      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> AI分析中...`;
+      // Download the actual recording so the student can attach it to any
+      // AI service that accepts audio uploads.
+      const ext = (audioBlob.type || '').includes('mp4') ? 'm4a'
+                : (audioBlob.type || '').includes('ogg') ? 'ogg'
+                : 'webm';
+
+      const fileName = `oral-reading-${new Date().toISOString().replace(/[:.]/g, '-')}.${ext}`;
+      const downloadUrl = URL.createObjectURL(audioBlob);
+
+      const prompt = `あなたは英語音読指導の専門家です。
+添付した音声は、学生が以下の英文を音読した録音です。
+音声そのものを聞いて、実際に確認できる範囲で評価してください。
+音声から確認できないことを推測して断定しないでください。
+
+【モデル英文】
+${currentPracticeResult.targetText}
+
+【参考データ】
+- ブラウザによる音声認識結果:
+${currentPracticeResult.spokenText}
+- 文字列一致率（参考値）: ${currentPracticeResult.accuracy}%
+- 音読速度: ${currentPracticeResult.wpm} WPM
+- 録音時間: ${currentPracticeResult.duration}秒
+
+【評価項目】
+1. 発音の明瞭さ
+2. 流暢さ（言いよどみ、不要な停止、言い直しなど）
+3. 語・文のアクセント
+4. イントネーション
+5. 音のつながり（linking）や自然なリズム
+6. 総合評価
+
+【回答】
+日本語で、学生本人に直接話しかけるように、次の形式で簡潔に答えてください。
+
+■ 良かった点
+- 2点
+
+■ 改善するとよい点
+- 2点。可能なら、モデル英文中の具体的な語句を示してください。
+
+■ 次回の練習ポイント
+- 1～2点。実行しやすい練習方法も示してください。
+
+■ 総合コメント
+- 努力を認める前向きなコメントを1～2文。
+
+なお、音声の聞き取りが不十分な場合は、その旨を明記してください。`;
+
+      // Save the prompt in a text file.
+      const promptBlob = new Blob([prompt], { type: 'text/plain;charset=utf-8' });
+      const promptUrl = URL.createObjectURL(promptBlob);
+      const promptFileName = `oral-reading-ai-prompt-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
 
       feedbackBox.innerHTML = `
-        <div class="flex items-center gap-3 text-indigo-300 animate-pulse">
-          <i class="fa-solid fa-sparkles text-xl"></i>
-          <span>Gemini AIが音読結果を多角的に分析し、指導テキストを生成しています...</span>
+        <div class="space-y-4">
+          <div class="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4">
+            <p class="font-semibold text-indigo-200 mb-2">
+              <i class="fa-solid fa-circle-info mr-1"></i>
+              AI評価の手順
+            </p>
+            <ol class="list-decimal list-inside space-y-1.5 text-slate-300 text-sm">
+              <li>下の「音声を保存」を押してください。</li>
+              <li>ChatGPT、Gemini、Claudeなど、お使いのAIを開いてください。</li>
+              <li>保存した音声ファイルをAIに添付してください。</li>
+              <li>「指示文をコピー」を押し、AIの入力欄に貼り付けて送信してください。</li>
+            </ol>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <a href="${downloadUrl}" download="${fileName}"
+               class="px-4 py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold text-center transition">
+              <i class="fa-solid fa-download mr-1.5"></i> 音声を保存
+            </a>
+            <button onclick="copyAIPrompt()"
+                    class="px-4 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-100 text-sm font-semibold transition">
+              <i class="fa-solid fa-copy mr-1.5"></i> 指示文をコピー
+            </button>
+          </div>
+
+          <div>
+            <p class="text-xs text-slate-400 mb-1.5">AIに送る指示文</p>
+            <textarea id="generic-ai-prompt" readonly
+              class="w-full h-64 bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-slate-300 leading-relaxed resize-y">${escapeHtml(prompt)}</textarea>
+          </div>
+
+          <p class="text-[11px] text-slate-500">
+            ※ このアプリからAIへ自動送信はしません。録音音声は、学生が選択したAIサービスに学生自身の操作でアップロードします。
+          </p>
         </div>
       `;
 
-      const prompt = `
-あなたは英語指導のプロフェッショナルコーチです。
-学生の音読練習結果を評価し、日本語で具体的で励みになる指導アドバイスを作成してください。
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-robot"></i> AI評価用データを再作成`;
 
-【課題英文 (Model Text)】:
-${currentPracticeResult.targetText}
+      window.currentAIPrompt = prompt;
+      window.currentAIFileName = promptFileName;
+      window.currentAIPromptUrl = promptUrl;
 
-【学生の音声認識結果 (Transcribed Speech)】:
-${currentPracticeResult.spokenText}
+      showToast("AI評価用データを作成しました", "success");
+    }
 
-【数値データ】:
-- 発音一致率: ${currentPracticeResult.accuracy}%
-- 読唱スピード: ${currentPracticeResult.wpm} WPM
-- 練習時間: ${currentPracticeResult.duration}秒
-
-【回答フォーマット requirements】:
-1. **全体講評 (讃える点と総評)**: 努力を褒めつつ全体の達成度を要約。
-2. **発音・リンキングのアドバイス (1〜2点)**: 読み落とした単語や誤読があった箇所の具体的な発音コツ（例: R/Lの区別、Thの発音、繋げて読む語など）。
-3. **次回への目標スピード・流暢さの提案**: WPMや区切り（イントネーション）に関するのアドバイス。
-
-親しみやすく前向きな言葉遣い（〜ですね！など）で書いてください。
-`;
+    async function copyAIPrompt() {
+      const prompt = window.currentAIPrompt || document.getElementById('generic-ai-prompt')?.value;
+      if (!prompt) {
+        showToast("先にAI評価用データを作成してください", "warning");
+        return;
+      }
 
       try {
-        const apiKey = ""; // Canvas runtime dynamically attaches Gemini key when empty
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
-        });
-
-        const data = await response.json();
-        const responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (responseText) {
-          // Format markdown-like text to HTML
-          const formattedHtml = responseText
-            .replace(/\*\*(.*?)\*\*/g, '<strong class="text-indigo-300 font-semibold">$1</strong>')
-            .replace(/\n\n/g, '</p><p class="mt-2.5">')
-            .replace(/\n- /g, '<br>• ');
-
-          feedbackBox.innerHTML = `<div class="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed"><p>${formattedHtml}</p></div>`;
-          showToast("AI音読アドバイスの生成が完了しました！", "success");
-        } else {
-          feedbackBox.innerHTML = `<p class="text-rose-400">AIフィードバックの取得に失敗しました。時間をおいて再試行してください。</p>`;
-        }
-
+        await navigator.clipboard.writeText(prompt);
+        showToast("AIへの指示文をコピーしました", "success");
       } catch (err) {
-        console.error("Gemini API error:", err);
-        feedbackBox.innerHTML = `<p class="text-rose-400">エラーが発生しました: ${escapeHtml(err.message)}</p>`;
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<i class="fa-solid fa-bolt"></i> AIアドバイスを再生成`;
+        const area = document.getElementById('generic-ai-prompt');
+        if (area) {
+          area.focus();
+          area.select();
+          document.execCommand('copy');
+          showToast("AIへの指示文をコピーしました", "success");
+        } else {
+          showToast("コピーに失敗しました。表示された指示文を手動でコピーしてください", "error");
+        }
       }
     }
 
